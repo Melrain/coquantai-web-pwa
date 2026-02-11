@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import { Noto_Sans_SC, Geist_Mono } from 'next/font/google';
 import { PWAInstallProvider } from '@/contexts/PWAInstallContext';
 import InstallPrompt from '@/components/InstallPrompt';
+import TopNavbar from '@/components/TopNavbar';
+import AuthInit from '@/components/AuthInit';
 import { SerwistProvider } from './serwist';
 import './globals.css';
 
@@ -67,6 +69,8 @@ export default function RootLayout({
         className={`${notoSansSC.variable} ${geistMono.variable} antialiased min-h-screen bg-black text-white font-sans`}>
         <SerwistProvider swUrl='/serwist/sw.js'>
           <PWAInstallProvider>
+            <AuthInit />
+            <TopNavbar />
             {children}
             <InstallPrompt />
           </PWAInstallProvider>

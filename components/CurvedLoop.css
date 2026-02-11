@@ -1,0 +1,41 @@
+.curved-loop-jacket {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* 内联紧凑模式：用于嵌入到页面中 */
+.curved-loop-jacket.curved-loop-compact {
+  min-height: auto;
+  height: auto;
+  padding: 0.5rem 0;
+}
+
+.curved-loop-jacket.curved-loop-compact .curved-loop-svg {
+  font-size: 1.5rem;
+  fill: rgba(255, 255, 255, 0.9);
+}
+
+@media (min-width: 640px) {
+  .curved-loop-jacket.curved-loop-compact .curved-loop-svg {
+    font-size: 2rem;
+  }
+}
+
+.curved-loop-svg {
+  user-select: none;
+  width: 100%;
+  aspect-ratio: 100 / 12;
+  overflow: visible;
+  display: block;
+  font-size: 6rem;
+  fill: #ffffff;
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 1;
+}
