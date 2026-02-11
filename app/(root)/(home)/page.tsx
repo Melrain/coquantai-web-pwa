@@ -14,7 +14,7 @@ export default function Page() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   useEffect(() => {
-    if (isAuthenticated) router.replace('/app');
+    if (isAuthenticated) router.replace('/dashboard');
   }, [isAuthenticated, router]);
   const blurTextGradientColors = useMemo(
     () => ['#7c3aed', '#a78bfa', '#22d3ee', '#a78bfa'],

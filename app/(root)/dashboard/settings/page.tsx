@@ -14,26 +14,26 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className='flex flex-col gap-6'>
-      <h1 className='text-2xl font-medium tracking-wide text-white/90'>设置</h1>
+    <div className='mx-auto max-w-2xl flex flex-col gap-6'>
+      <h1 className='text-2xl font-medium tracking-wide text-slate-800'>设置</h1>
 
       <section
-        className='rounded-xl border border-white/20 bg-white/5 p-5 backdrop-blur-md'
-        style={{ borderColor: 'rgba(124, 58, 237, 0.3)' }}>
-        <h2 className='mb-4 text-lg font-medium text-white/85'>账号信息</h2>
+        className='rounded-xl border border-slate-200 bg-white p-5 backdrop-blur-md'
+        style={{ borderColor: 'rgba(37, 99, 235, 0.25)' }}>
+        <h2 className='mb-4 text-lg font-medium text-slate-700'>账号信息</h2>
         <dl className='space-y-3'>
           <div>
-            <dt className='text-xs text-white/55'>用户名</dt>
-            <dd className='mt-0.5 text-white/90'>{user?.username ?? '-'}</dd>
+            <dt className='text-xs text-slate-500'>用户名</dt>
+            <dd className='mt-0.5 text-slate-800'>{user?.username ?? '-'}</dd>
           </div>
           <div>
-            <dt className='text-xs text-white/55'>邮箱</dt>
-            <dd className='mt-0.5 text-white/90'>{user?.email ?? '未绑定'}</dd>
+            <dt className='text-xs text-slate-500'>邮箱</dt>
+            <dd className='mt-0.5 text-slate-800'>{user?.email ?? '未绑定'}</dd>
           </div>
           {user?.tier && (
             <div>
-              <dt className='text-xs text-white/55'>等级</dt>
-              <dd className='mt-0.5 text-white/90'>{user.tier}</dd>
+              <dt className='text-xs text-slate-500'>等级</dt>
+              <dd className='mt-0.5 text-slate-800'>{user.tier}</dd>
             </div>
           )}
         </dl>

@@ -52,10 +52,10 @@ export interface ProfileResponse {
 }
 
 function getApiUrl(): string {
-  if (typeof window !== 'undefined') {
-    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '');
   }
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  return 'http://localhost:8080';
 }
 
 function getLocalStorage(): Storage | null {
@@ -362,4 +362,408 @@ export async function getSimTradeActiveOrders(): Promise<SimTradeOrder[]> {
   const json: { success: boolean; data: SimTradeOrder[] } =
     await response.json();
   return json.data ?? [];
+}
+
+/** 宏观事件 */
+export interface MacroEvent {
+  id: string;
+  label: string;
+  type: 'series' | 'event';
+  seriesId?: string;
+  slug?: string;
+  description: string;
+  referenceSymbol?: string;
+}
+
+export async function getMacroEvents(): Promise<MacroEvent[]> {
+  const response = await authRequest(
+    `${getApiUrl()}/ai-analysis-graph/macro-events`
+  );
+  if (!response.ok) await handleErrorResponse(response);
+  const json: { success?: boolean; data?: MacroEvent[] } =
+    await response.json();
+  return json.data ?? [];
+}
+
+/** 分析历史项 */
+export interface AnalysisHistoryItem {
+  _id: string;
+  userId: string;
+  symbol: string;
+  analysisResult: {
+    action?: string;
+    summary?: string;
+    actionDetails?: { direction?: string; entryPrice?: string };
+    [key: string]: unknown;
+  } | null;
+  error?: string;
+  provider?: string;
+  model?: string;
+  analyzedAt: Date | string;
+  timestamp: number;
+}
+
+export async function getAnalysisHistory(
+  symbol: string,
+  limit = 20,
+  skip = 0
+): Promise<AnalysisHistoryItem[]> {
+  const params = new URLSearchParams({
+    symbol,
+    limit: String(limit),
+    skip: String(skip),
+  });
+  const response = await authRequest(
+    `${getApiUrl()}/ai-analysis-graph/history?${params}`
+  );
+  if (!response.ok) await handleErrorResponse(response);
+  const json: { success?: boolean; data?: AnalysisHistoryItem[] } =
+    await response.json();
+  return json.data ?? [];
+}
+
+/** 触发分析请求体 */
+export interface TriggerAnalyzeBody {
+  symbol: string;
+  strategy?: 'CONSERVATIVE' | 'QUANTITATIVE' | 'AGGRESSIVE';
+  language?: string;
+  provider?: string;
+  macroEventIds?: string[];
+}
+
+/** 触发分析响应 */
+export interface TriggerAnalyzeResponse {
+  success: boolean;
+  jobId?: string;
+  sessionId?: string;
+  error?: string;
+  quota?: AiQuotaResponse;
+}
+
+export async function triggerAnalyze(
+  body: TriggerAnalyzeBody
+): Promise<TriggerAnalyzeResponse> {
+  const response = await authRequest(
+    `${getApiUrl()}/ai-analysis-graph/analyze`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        symbol: body.symbol,
+        strategy: body.strategy ?? 'QUANTITATIVE',
+        language: body.language ?? 'Chinese-Simplified',
+        provider: body.provider ?? 'deepseek',
+        macroEventIds: body.macroEventIds,
+      }),
+    }
+  );
+  const data = await response.json();
+  if (!response.ok) {
+    throw new AuthError(data.message ?? data.error ?? '分析请求失败');
+  }
+  return data;
+}
+
+/** 分析任务状态 */
+export interface AnalysisStatusResponse {
+  id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'not_found';
+  progress?: number | { progress?: number };
+  failedReason?: string;
+}
+
+export async function getAnalysisStatus(
+  jobId: string
+): Promise<AnalysisStatusResponse> {
+  const response = await authRequest(
+    `${getApiUrl()}/ai-analysis-graph/status/${encodeURIComponent(jobId)}`
+  );
+  return response.json();
+}
+
+/** 最后一次分析结果 */
+export interface LastAnalysisResponse {
+  success: boolean;
+  sessionId?: string;
+  data?: unknown;
+  error?: string;
+}
+
+export async function getLastAnalysis(
+  symbol: string
+): Promise<LastAnalysisResponse> {
+  const response = await authRequest(
+    `${getApiUrl()}/ai-analysis-graph/last-analysis?symbol=${encodeURIComponent(symbol)}`
+  );
+  return response.json();
+}
+
+// ========== Arena (AI 交易员竞技场) ==========
+
+export interface ArenaParticipant {
+  _id: string;
+  userId: string;
+  modelId: string;
+  provider: string;
+  name: string;
+  personality: string;
+  initialBalance: number;
+  status: string;
+  lastReflection?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ArenaStatus {
+  status: string;
+  activeParticipantsCount: number;
+  timestamp: string;
+}
+
+export interface ArenaSymbolStatus {
+  symbol: string;
+  hasPosition: boolean;
+  side: 'LONG' | 'SHORT' | null;
+  quantity: string;
+  entryPrice: string;
+  currentPrice: string;
+  unrealizedPnl: number;
+  positionValue: number;
+  leverage?: number;
+  takeProfitPrice?: string | null;
+  stopPrice?: string | null;
+}
+
+export interface ArenaLiveParticipant {
+  participant: {
+    _id: string;
+    userId: string;
+    name: string;
+    modelId: string;
+    provider: string;
+    personality: string;
+    lastReflection?: string;
+    status: string;
+  };
+  symbolStatuses: ArenaSymbolStatus[];
+  activePositionCount: number;
+  totalPositionValue: number;
+  totalUnrealizedPnl: number;
+  lastDecision: {
+    action: string;
+    symbol: string;
+    reason: string;
+    createdAt: string;
+  } | null;
+  stats: {
+    totalTrades: number;
+    winRate: number;
+    totalPnl: number;
+  };
+}
+
+export interface ArenaLiveStatus {
+  monitoredSymbols: string[];
+  participants: ArenaLiveParticipant[];
+}
+
+export interface ArenaRecentActivity {
+  _id: string;
+  userId: string;
+  participantId: string;
+  symbol: string;
+  participantName: string;
+  participantProvider: string;
+  reasoning?: string;
+  suggestedAction?: { action: string; reason?: string };
+  suggestedSignal?: { biasScore: number; confidence: number; summary?: string };
+  executedAction?: { type: string; reason?: string };
+  pnl?: number;
+  status: string;
+  createdAt: string;
+}
+
+export interface ArenaDecisionLog {
+  _id: string;
+  userId: string;
+  participantId: string;
+  symbol: string;
+  reasoning?: string;
+  suggestedAction?: { action: string; reason?: string; quantity?: string };
+  suggestedSignal?: {
+    biasScore: number;
+    confidence: number;
+    summary?: string;
+  };
+  executedAction?: { type: string; reason?: string };
+  pnl?: number;
+  status: string;
+  analyzedAt: string;
+  createdAt: string;
+}
+
+export interface ArenaParticipantPerformance {
+  participant: ArenaParticipant;
+  account: {
+    available: string;
+    frozen: string;
+    totalEquity: string;
+    [key: string]: unknown;
+  };
+  stats: {
+    totalTrades: number;
+    winRate: number;
+    totalPnl: number;
+  };
+}
+
+export interface CreateParticipantDto {
+  userId: string;
+  modelId: string;
+  provider: string;
+  name: string;
+  personality: string;
+  initialBalance?: number;
+}
+
+/** 公开：获取竞技场概览状态 */
+export async function getArenaStatus(): Promise<ArenaStatus> {
+  const response = await authRequest(`${getApiUrl()}/arena/status`);
+  if (!response.ok) throw new AuthError('获取竞技场状态失败');
+  return response.json();
+}
+
+/** 公开：获取所有活跃 AI 交易员 */
+export async function getArenaParticipants(): Promise<ArenaParticipant[]> {
+  const response = await authRequest(`${getApiUrl()}/arena/participants`);
+  if (!response.ok) throw new AuthError('获取参与者失败');
+  return response.json();
+}
+
+/** 公开：获取所有 AI 实时状态 */
+export async function getArenaLiveStatus(): Promise<ArenaLiveStatus> {
+  const response = await authRequest(`${getApiUrl()}/arena/live-status`);
+  if (!response.ok) throw new AuthError('获取实时状态失败');
+  return response.json();
+}
+
+/** 公开：获取最近操作动态 */
+export async function getArenaRecentActivities(
+  limit = 10
+): Promise<ArenaRecentActivity[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const response = await authRequest(
+    `${getApiUrl()}/arena/recent-activities?${params}`
+  );
+  if (!response.ok) throw new AuthError('获取最近动态失败');
+  return response.json();
+}
+
+/** 公开：获取交易员性能指标 */
+export async function getArenaParticipantPerformance(
+  participantId: string
+): Promise<ArenaParticipantPerformance> {
+  const response = await authRequest(
+    `${getApiUrl()}/arena/participants/${encodeURIComponent(participantId)}/performance`
+  );
+  if (!response.ok) throw new AuthError('获取性能指标失败');
+  return response.json();
+}
+
+/** 公开：获取交易员决策日志 */
+export async function getArenaParticipantLogs(
+  participantId: string,
+  limit = 20
+): Promise<ArenaDecisionLog[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const response = await authRequest(
+    `${getApiUrl()}/arena/logs/${encodeURIComponent(participantId)}?${params}`
+  );
+  if (!response.ok) throw new AuthError('获取决策日志失败');
+  return response.json();
+}
+
+/** 管理员：创建 AI 交易员 */
+export async function createArenaParticipant(
+  data: CreateParticipantDto
+): Promise<ArenaParticipant> {
+  const response = await authRequest(`${getApiUrl()}/arena/participants`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  const json = await response.json();
+  if (response.status === 403) throw new AuthError('需要管理员权限');
+  if (!response.ok) throw new AuthError(json.message ?? json.error ?? '创建失败');
+  return json;
+}
+
+/** 管理员：手动触发决策周期 */
+export async function triggerArenaCycle(
+  symbol = 'BTCUSDT'
+): Promise<{ message: string }> {
+  const response = await authRequest(`${getApiUrl()}/arena/trigger`, {
+    method: 'POST',
+    body: JSON.stringify({ symbol }),
+  });
+  const json = await response.json();
+  if (response.status === 403) throw new AuthError('需要管理员权限');
+  if (!response.ok) throw new AuthError(json.message ?? json.error ?? '触发失败');
+  return json;
+}
+
+/** 管理员：手动触发复盘周期 */
+export async function triggerArenaReflection(): Promise<{ message: string }> {
+  const response = await authRequest(
+    `${getApiUrl()}/arena/trigger-reflection`,
+    { method: 'POST', body: JSON.stringify({}) }
+  );
+  const json = await response.json();
+  if (response.status === 403) throw new AuthError('需要管理员权限');
+  if (!response.ok) throw new AuthError(json.message ?? json.error ?? '触发失败');
+  return json;
+}
+
+/** 管理员：重置单个交易员 */
+export async function resetArenaParticipant(
+  participantId: string
+): Promise<{ success: boolean; message: string }> {
+  const response = await authRequest(
+    `${getApiUrl()}/arena/participants/${encodeURIComponent(participantId)}/reset`,
+    { method: 'POST', body: JSON.stringify({}) }
+  );
+  const json = await response.json();
+  if (response.status === 403) throw new AuthError('需要管理员权限');
+  if (!response.ok) throw new AuthError(json.message ?? json.error ?? '重置失败');
+  return json;
+}
+
+/** 管理员：重置所有交易员 */
+export async function resetAllArenaParticipants(): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  const response = await authRequest(`${getApiUrl()}/arena/reset-all`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  const json = await response.json();
+  if (response.status === 403) throw new AuthError('需要管理员权限');
+  if (!response.ok)
+    throw new AuthError(json.message ?? json.error ?? '重置失败');
+  return json;
+}
+
+/** 管理员：硬重置竞技场 */
+export async function arenaHardReset(): Promise<{
+  success: boolean;
+  data?: unknown;
+  message: string;
+}> {
+  const response = await authRequest(`${getApiUrl()}/arena/hard-reset`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  const json = await response.json();
+  if (response.status === 403) throw new AuthError('需要管理员权限');
+  if (!response.ok)
+    throw new AuthError(json.message ?? json.error ?? '硬重置失败');
+  return json;
 }
